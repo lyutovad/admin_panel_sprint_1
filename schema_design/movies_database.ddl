@@ -37,9 +37,6 @@ CREATE TABLE IF NOT EXISTS content.genre_film_work
     CONSTRAINT FK_film_work_genre_film_work FOREIGN KEY (film_work_id) REFERENCES content.film_work (id) ON DELETE cascade
 );
 
-
---drop table content.person_film_work;
-
 CREATE TABLE IF NOT EXISTS content.person_film_work
 (
     id uuid PRIMARY KEY,
