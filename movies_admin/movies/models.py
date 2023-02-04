@@ -9,7 +9,6 @@ class TimeStampedMixin(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     class Meta:
-        # Этот параметр указывает Django, что этот класс не является представлением таблицы
         abstract = True
 
 
@@ -21,8 +20,8 @@ class UUIDMixin(models.Model):
 
 
 class Genre(UUIDMixin, TimeStampedMixin):
-    name = models.CharField('Название', max_length=255)
-    description = models.TextField('Описание', blank=True)
+    name = models.CharField(_('title'), max_length=255)
+    description = models.TextField(_('description'), blank=True)
 
     class Meta:
         db_table = "content\".\"genre"
@@ -47,23 +46,23 @@ class Person(UUIDMixin, TimeStampedMixin):
 
 class Filmwork(UUIDMixin, TimeStampedMixin):
     class MovieType(models.TextChoices):
-        MOVIE = 'MV', _('фильм')
-        TVSHOW = 'TS', _('телесериал')
+        MOVIE = 'MV', _('movie')
+        TVSHOW = 'TS', _('tv-show')
 
-    title = models.CharField('Название', max_length=255)
-    description = models.TextField('Описание', blank=True)
-    creation_date = models.DateField('Дата создания', blank=True)
-    rating = models.FloatField('Рейтинг', blank=True,
+    title = models.CharField(_('title'), max_length=255)
+    description = models.TextField(_('description'), blank=True)
+    creation_date = models.DateField(_('creation_date'), blank=True)
+    rating = models.FloatField(_('rating'), blank=True,
                                validators=[MinValueValidator(0),
                                            MaxValueValidator(100)])
-    type = models.CharField('Тип', choices=MovieType.choices, max_length=255)
+    type = models.CharField(_('type'), choices=MovieType.choices, max_length=255)
     genres = models.ManyToManyField(Genre, through='GenreFilmwork')
     persons = models.ManyToManyField(Person, through='PersonFilmwork')
+    certificate = models.CharField(_('certificate'), max_length=512, blank=True)
+    file_path = models.FileField(_('file'), blank=True, null=True, upload_to='movies/')
 
     class Meta:
-        # Ваши таблицы находятся в нестандартной схеме. Это нужно указать в классе модели
         db_table = "content\".\"film_work"
-        # Следующие два поля отвечают за название модели в интерфейсе
         verbose_name = 'Фильм'
         verbose_name_plural = 'Фильмы'
 
@@ -81,9 +80,15 @@ class GenreFilmwork(UUIDMixin):
 
 
 class PersonFilmwork(UUIDMixin):
-    film_work = models.ForeignKey('Filmwork', on_delete=models.CASCADE)
-    person = models.ForeignKey('Person', on_delete=models.CASCADE)
-    role = models.TextField('роль', null=True)
+    class RoleChoices(models.TextChoices):
+        DIRECTOR = 'director', _('director')
+        ACTOR = 'actor', _('actor')
+        WRITER = 'writer', _('writer')
+
+    filmwork = models.ForeignKey(Filmwork, on_delete=models.CASCADE)
+    person = models.ForeignKey(Person, on_delete=models.CASCADE)
+    role = models.CharField(_('role'), null=True,
+                            max_length=255, choices=RoleChoices.choices)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
