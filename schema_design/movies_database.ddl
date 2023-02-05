@@ -48,9 +48,7 @@ CREATE TABLE IF NOT EXISTS content.person_film_work
     CONSTRAINT FK_film_work_person_film_work FOREIGN KEY (film_work_id) REFERENCES content.film_work (id) ON DELETE cascade
 );
 
+CREATE UNIQUE INDEX genre_film_work_idx on content.genre_film_work(film_work_id, genre_id);
+CREATE UNIQUE INDEX person_film_work_role_idx on content.person_film_work(film_work_id, person_id, role);
 
-CREATE INDEX film_work_creation_date_idx ON content.film_work(creation_date);
-
-
-CREATE UNIQUE INDEX film_work_person_idx ON content.person_film_work (film_work_id, person_id);
 
