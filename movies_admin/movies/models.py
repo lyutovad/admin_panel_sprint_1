@@ -60,8 +60,7 @@ class Filmwork(UUIDMixin, TimeStampedMixin):
                             choices=MovieType.choices, max_length=255)
     genres = models.ManyToManyField(Genre, through='GenreFilmwork')
     persons = models.ManyToManyField(Person, through='PersonFilmwork')
-    file_path = models.FileField(_('file'), blank=True,
-                                 null=True, upload_to='movies/')
+    file_path = models.FileField(_('file'), blank=True, upload_to='movies/')
 
     class Meta:
         db_table = "content\".\"film_work"
@@ -89,7 +88,7 @@ class PersonFilmwork(UUIDMixin):
 
     film_work = models.ForeignKey(Filmwork, on_delete=models.CASCADE)
     person = models.ForeignKey(Person, on_delete=models.CASCADE)
-    role = models.CharField(_('role'), null=True,
+    role = models.CharField(_('role'),
                             max_length=255, choices=RoleChoices.choices)
     created = models.DateTimeField(auto_now_add=True)
 
