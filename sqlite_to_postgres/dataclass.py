@@ -3,6 +3,26 @@ import uuid
 import datetime
 
 
+class DataClassGetter:
+
+    def __init__(self, table):
+        self.table = table
+
+    def get_dataclass(self):
+        if self.table == 'film_work':
+            return Movie
+        elif self.table == 'genre':
+            return Genre
+        elif self.table == 'person':
+            return Person
+        elif self.table == 'genre_film_work':
+            return GenreFilmwork
+        elif self.table == 'person_film_work':
+            return PersonFilmwork
+        else:
+            raise Exception("Not existed")
+
+
 @dataclass
 class Movie:
     title: str

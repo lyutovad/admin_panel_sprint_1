@@ -1,18 +1,17 @@
 import os
-from contextlib import contextmanager
-
-from psycopg2.extras import DictCursor
-from psycopg2.extensions import connection as _connection
-import psycopg2
 import sqlite3
 
-from dotenv import load_dotenv
+from psycopg2.extensions import connection as _connection
 
 from sqlite import SQLiteLoader
 from postgres import PostgresSaver
-from data import Movie, Person, Genre, PersonFilmwork, GenreFilmwork
+from db_conns import pg_conn_context, conn_context
+
+from dotenv import load_dotenv
 
 load_dotenv()
+
+BATCH_SIZE = 100
 
 CONFIG = {
     "POSTGRES_DBNAME": os.environ.get('DB_NAME'),
@@ -24,40 +23,22 @@ CONFIG = {
 }
 
 
-@contextmanager
-def conn_context(db_path: str):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    yield conn
-    conn.close()
-
-
-@contextmanager
-def pg_conn_context(dsl: dict):
-    pg_conn = psycopg2.connect(**dsl, cursor_factory=DictCursor)
-    yield pg_conn
-    pg_conn.close()
-
-
-def load_from_sqlite(connection: sqlite3.Connection, pg_conn: _connection):
+def load_from_sqlite(connection: sqlite3.Connection, pg_connect: _connection):
     """Основной метод загрузки данных из SQLite в Postgres"""
-    postgres_saver = PostgresSaver(pg_conn)
+
+    postgres_saver = PostgresSaver(pg_connect)
     sqlite_loader = SQLiteLoader(connection)
 
-    for data in sqlite_loader.load(Movie, 'film_work'):
-        postgres_saver.save_all_filmworks(data)
-    for data in sqlite_loader.load(Genre, 'genre'):
-        postgres_saver.save_all_genres(data)
-    for data in sqlite_loader.load(Person, 'person'):
-        postgres_saver.save_all_persons(data)
-    for data in sqlite_loader.load(GenreFilmwork, 'genre_film_work'):
-        postgres_saver.save_all_genre_filmworks(data)
-    for data in sqlite_loader.load(PersonFilmwork, 'person_film_work'):
-        postgres_saver.save_all_person_filmworks(data)
+    tables = sqlite_loader.get_tables()
+    for table in tables:
+        data_gen = sqlite_loader.load_table_gen(table, batch_size=BATCH_SIZE)
+        postgres_saver.save_all_data(data_gen, table)
 
 
 if __name__ == '__main__':
     dsl = {'dbname': CONFIG['POSTGRES_DBNAME'], 'user': CONFIG['POSTGRES_USER'],
-           'password': CONFIG['POSTGRES_PASS'], 'host': CONFIG['POSTGRES_HOST'], 'port': CONFIG['POSTGRES_PORT']}
-    with conn_context(CONFIG['SQLITE_PATH']) as sqlite_conn, pg_conn_context(dsl) as pg_conn:
+           'password': CONFIG['POSTGRES_PASS'], 'host': CONFIG['POSTGRES_HOST'],
+           'port': CONFIG['POSTGRES_PORT']}
+    with conn_context('db.sqlite') as sqlite_conn, \
+            pg_conn_context(dsl) as pg_conn:
         load_from_sqlite(sqlite_conn, pg_conn)

@@ -1,17 +1,33 @@
+import sqlite3
+from dataclass import DataClassGetter
+from db_conns import get_cursor
+
+
 class SQLiteLoader:
-    def __init__(self, connection) -> None:
+    dataclass = None
+
+    def __init__(self, connection: sqlite3.Connection):
         self.connection = connection
 
-    def load(self, data_class, table_name: str, batch_size: int = 100) -> list:
-        curs = self.connection.cursor()
-        curs.execute(f"SELECT * FROM {table_name};")
+    def load_table_gen(self, table_name, batch_size):
+        self.dataclass = DataClassGetter(table_name).get_dataclass()
 
-        while True:
-            data = curs.fetchmany(batch_size)
-            if not data:
-                break
-            records = []
-            for m in data:
-                record = data_class(**m)
-                records.append(record)
-            yield records
+        with get_cursor(self.connection) as cursor:
+
+            sql = f'select * from {table_name}'
+            cursor.execute(sql)
+
+            while True:
+                sql_data = cursor.fetchmany(batch_size)
+                if not sql_data:
+                    break
+                data = [self.dataclass(**row) for row in sql_data]
+                yield data
+
+    def get_tables(self):
+        with get_cursor(self.connection) as cursor:
+            sql = 'SELECT name FROM sqlite_master WHERE type="table"'
+            cursor.execute(sql)
+
+            tables = [row['name'] for row in cursor.fetchall()]
+        return tables

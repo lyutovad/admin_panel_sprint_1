@@ -1,55 +1,35 @@
-from psycopg2.extras import execute_batch
-from datetime import datetime
+from dataclasses import astuple
+
+from db_conns import get_cursor
+from psycopg2.extensions import connection as _connection
+from psycopg2.extras import execute_values
 
 
 class PostgresSaver:
 
-    def __init__(self, connection) -> None:
+    def __init__(self, connection: _connection):
         self.connection = connection
 
-    def save_all_persons(self, data: list, n: int = 16) -> None:
-        with self.connection.cursor() as cur:
-            query = 'INSERT INTO content.person (id, full_name, created, modified) \
-                VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING; '
-            insert_data = [(p.id, p.full_name, p.created_at, datetime.now())
-                           for p in data]
-            execute_batch(cur, query, insert_data, page_size=n)
-            self.connection.commit()
+    def save_all_data(self, data_gen, table_name: str, schema='content'):
+        table_name_with_schema = f'{schema}.{table_name}'
 
-    def save_all_filmworks(self, data: list, n: int = 16) -> None:
-        with self.connection.cursor() as cur:
-            query = 'INSERT INTO content.film_work (id, title, created, modified, description, creation_date, rating, type) \
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING; '
-            insert_data = [
-                (m.id, m.title, m.created_at, datetime.now(), m.description, m.creation_date, m.rating, m.type)
-                for m in data]
-            execute_batch(cur, query, insert_data, page_size=n)
-            self.connection.commit()
+        with get_cursor(self.connection) as cursor:
+            for chunk in data_gen:
+                fields = chunk[0].__annotations__.keys()
+                fields_template = ', '.join(fields)
+                fields_template = fields_template.replace('created_at',
+                                                          'created')
+                fields_template = fields_template.replace('updated_at',
+                                                          'modified')
 
-    def save_all_genres(self, data: list, n: int = 16) -> None:
-        with self.connection.cursor() as cur:
-            query = 'INSERT INTO content.genre (id, name, description, created, modified) \
-                VALUES (%s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING; '
-            insert_data = [(g.id, g.name, g.description, g.created_at, datetime.now())
-                           for g in data]
-            execute_batch(cur, query, insert_data, page_size=n)
-            self.connection.commit()
+                data = [astuple(element) for element in chunk]
 
-    def save_all_genre_filmworks(self, data: list, n: int = 16) -> None:
-        with self.connection.cursor() as cur:
-            query = 'INSERT INTO content.genre_film_work (id, genre_id, film_work_id, created) \
-                VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING; '
-            insert_data = [(g.id, g.genre_id, g.film_work_id, datetime.now())
-                           for g in data]
-            execute_batch(cur, query, insert_data, page_size=n)
-            self.connection.commit()
+                insert_query = '''INSERT INTO {table} ({fields})
+                                  VALUES %s
+                                  ON CONFLICT (id) DO NOTHING;''' \
+                    .format(table=table_name_with_schema,
+                            fields=fields_template)
 
-    def save_all_person_filmworks(self, data: list, n: int = 16) -> None:
-        with self.connection.cursor() as cur:
-            query = 'INSERT INTO content.person_film_work (id, person_id, film_work_id, role, created) \
-                VALUES (%s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING; '
-            insert_data = [(p.id, p.person_id, p.film_work_id, p.role,
-                            datetime.now()) for p in data]
-            execute_batch(cur, query, insert_data, page_size=n)
-            self.connection.commit()
+                execute_values(cursor, insert_query, data)
 
+                self.connection.commit()
